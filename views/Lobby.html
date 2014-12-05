@@ -7,22 +7,31 @@
 		<script>
 			$(document).ready(function() {
 				$.getJSON('/room',function(data) {
-					alert(data);
+					for(var i=0;i<data.length;i++) {
+						$('<button></button>').attr({
+						'data-room':data[i]
+						}).text('Room Name : ' + data[i]).appendTo('#container');
+					}
 					/*
 					$.each(data,function(index,item) {
+						alert("item : " + item);
 						$('<button></button>').attr({
 							'data-room':item
-						}).text('Room Number : ' + item).button().appendTo('#container');
-						alert("item");
+						}).text('Room Name : ' + item).button().appendTo('#container');
 					});
 					*/
 				});
 				var socket = io.connect();
 				socket.on('create_room',function(data) {
-					alert(data);
+					alert("Room name : " + data);
 					$('<button></button>').attr({
 						'data-room':data
-					}).text('Room Number : ' + item).appendTo('#container');
+					}).text('Room Name : ' + data).button().appendTo('#container');
+				});
+				$(document).on('click','#container > button',function() {
+					var room = $(this).attr('data-room');
+					alert("Room Name : " + room);
+					location = '/canvas/' + room;
 				});
 				$('body > button').click(function() {
 					var room = $('#room').val();

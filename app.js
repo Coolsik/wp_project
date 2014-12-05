@@ -29,7 +29,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 //app.get('/',routes.Lobby);
 */
-var RoomName,RoomList = " ";
+var RoomName,index=0;
+var RoomList = new Array();
+
 var server = http.createServer(app);
 server.listen(3000,function() {
 	console.log('server running at http://211.189.127.27:3000');
@@ -53,17 +55,14 @@ router.get('/canvas/:room',function(request,response) {
 	});
 });
 router.get('/room',function(request,response) {
-	RoomList += RoomName;
-	console.log("list : " + RoomList);
-	//response.send(io.sockets.adapter.rooms);
+	//console.log("list : " + RoomList);
+	response.send(RoomList);
 });
 io.sockets.on('connection',function(socket) {
 	socket.on('join',function(data) {
-		console.log("join data : " + data);
 		socket.join(data);
 		//socket.set('room',data);
 		socket.room=data;
-		RoomName = data.toString();
 	});
 	socket.on('draw',function(data) {
 		//socket.get('room',function(error,room) {
@@ -72,5 +71,7 @@ io.sockets.on('connection',function(socket) {
 	});
 	socket.on('create_room',function(data) {
 		io.sockets.emit('create_room',data.toString());
+		RoomList[index] = data.toString();
+		index++;
 	});
 });
