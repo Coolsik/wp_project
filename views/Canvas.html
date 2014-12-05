@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title></title>
+		<link rel="stylesheet" href="/farbtastic/farbtastic.css" />
+		<link rel="stylesheet" href="/jqueryui/css/ui-lightness/jquery-ui-1.10.4.css" />
+		<script src="http://code.jquery.com/jquery-1.10.2.js"></script>
+		<script src="/jqueryui/js/jquery-ui-1.10.4.js"></script>
+		<script src="/socket.io/socket.io.js"></script>
+		<script src="/farbtastic/farbtastic.js"></script>
+		<script> 
+			function Point(event, target) {
+				this.x = event.pageX - $(target).position().left;
+				this.y = event.pageY - $(target).position().top;
+			}
+		</script>
+		<script>
+			$(document).ready(function() {
+				var canvas = document.getElementById('canvas');
+				var context = canvas.getContext('2d');
+
+				var width=5 , color = '#000000' , isDown = false , newPoint, oldPoint;
+
+				canvas.onmousedown = function(event) {
+					isDown = true;
+					oldPoint = new Point(event,this);
+				};
+				canvas.onmouseup = function() {isDown = false;}
+				canvas.onmousemove = function(event) {
+					if(isDown) {
+						newPoint = new Point(event,this);
+
+						socket.emit('draw', {
+							width:width,
+							color:color,
+							x1:oldPoint.x,
+							y1:oldPoint.y,
+							x2:newPoint.x,
+							y2:newPoint.y,
+						});
+						oldPoint = newPoint;
+					}
+				};
+
+				var socket = io.connect();
+				socket.emit('join','<%= room %>');
+				socket.on('line',function(data) {
+					context.lineWidth = data.width;
+					context.strokeStyle = data.color;
+					context.beginPath();
+					context.moveTo(data.x1,data.y1);
+					context.lineTo(data.x2,data.y2);
+					context.stroke();
+				});
+
+				$('#colorpicker').farbtastic(function(data) {
+					color = data;
+				});
+				$('#slider').slider({
+					max:20, min:1 , value:5,
+					change:function(event,ui) {
+						width = ui.value;
+					}
+				});
+			});
+		</script>
+		<script>
+		</script>
+	</head>
+	<body>
+		<table border="10">
+			<tr>
+				<td rowspan="3">
+					<!--캔버스-->
+					<canvas id="canvas" width="600" height="400"></canvas>
+				</td>
+				<td height="200">
+					<!-- 색상 선택 -->
+					<div id="colorpicker"></div>
+				</td>
+			</tr>
+			<tr>
+				<tr height="25">
+					<!-- 슬라이더 : 두께 선택 -->
+					<div id="slider"></div>
+				</td>
+			</tr>
+			<tr>
+				<td style="background:orange;"></td>
+			</tr>
+		</table>
+	</body>
+</html>
