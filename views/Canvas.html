@@ -6,43 +6,70 @@
 		<link rel="stylesheet" href="/jqueryui/css/ui-lightness/jquery-ui-1.10.4.css" />
 		<script src="http://code.jquery.com/jquery-1.10.2.js"></script>
 		<script src="/jqueryui/js/jquery-ui-1.10.4.js"></script>
+		<script type="text/javascript" src="http://code.jquery.com/jquery.min.js"></script>
 		<script src="/socket.io/socket.io.js"></script>
 		<script src="/farbtastic/farbtastic.js"></script>
-		<script> 
+		<script src="http://d3lp1msu2r81bx.cloudfront.net/kjs/js/lib/kinetic-v5.0.1.min.js"></script>
+		<script>
 			function Point(event, target) {
 				this.x = event.pageX - $(target).position().left;
 				this.y = event.pageY - $(target).position().top;
-			}
+			}			
 		</script>
 		<script>
 			$(document).ready(function() {
 				var canvas = document.getElementById('canvas');
 				var context = canvas.getContext('2d');
+
 				var width=5 , color = '#000000' , isDown = false , newPoint, oldPoint;
+				var canvasOffset = $('#canvas').offset();
+				var offsetX = canvasOffset.left;
+				var offsetY = canvasOffset.top;
+				var startX, startY, img;
+				var pi2 = Math.PI*2;
+				var resizerRadius = 8;
+				var rr = resizerRadius * resizerRadius;
+				var draggingResizer = {x:0,y:0};
+				var imageX=50,imageY=50;
+				var imageWidth,imageHeight,imageRight,imageBottom;
+				var draggingImage=false;
+				var func_check;
 
 				canvas.onmousedown = function(event) {
-					isDown = true;
-					oldPoint = new Point(event,this);
-				};
-				canvas.onmouseup = function() {isDown = false;}
+					func_check = document.getElementById("func").value;
+					if(func_check == "draw_check") {
+						isDown = true;
+						oldPoint = new Point(event,this);
+					} else if(func_check == "img_check") handleMouseDown(event);
+				}
+				canvas.onmouseup = function(event) {
+					func_check = document.getElementById("func").value;
+					if(func_check == "draw_check") {
+						isDown = false;
+					} else if(func_check == "img_check") handleMouseUp(event);
+				}
 				canvas.onmousemove = function(event) {
-					if(isDown) {
-						newPoint = new Point(event,this);
-
-						socket.emit('draw', {
-							width:width,
-							color:color,
-							x1:oldPoint.x,
-							y1:oldPoint.y,
-							x2:newPoint.x,
-							y2:newPoint.y,
-						});
-						oldPoint = newPoint;
-					}
-				};
-
+					func_check = document.getElementById("func").value;
+					if(func_check=="draw_check") {
+						if(isDown) {
+							newPoint = new Point(event,this);
+							socket.emit('draw', {
+								width:width,
+								color:color,
+								x1:oldPoint.x,
+								y1:oldPoint.y,
+								x2:newPoint.x,
+								y2:newPoint.y,
+							});
+							oldPoint = newPoint;
+						}
+					} else if(func_check == "img_check") handleMouseMove(event);
+				}
+				canvas.onmouseout = function(event) {
+					func_check = document.getElementById("func").value;
+					if(func_check=="img_check") handleMouseOut(event)
+				}
 				var socket = io.connect();
-
 				// URL 부분에 room 번호 방에 접속 후 line 그려줌
 				socket.emit('join','<%= room %>');
 				socket.on('line',function(data) {
@@ -54,14 +81,25 @@
 					context.stroke();
 				});
 				socket.on('image',function(data) {
-					var img = new Image();
-
+					/*
+					var image = new Image();
 					image.onload = function() {
 						var x=0,y=0;
-						context.drawImage(this,x,y,300,300);
-						alert("Draw Finish");
+						context.drawImage(image,x,y,300,300);
 					}
-					image.src = "data:image/png;base64,RTpcTWVtYmVyc2hpcFxTdHVkeVxFY2xpcHNlXFdlYl9wcm9qZWN0XGltYWdlc1wwNTI0MTRfcmVhbC1tYWRyaWRfNjAwLmpwZw==";
+					image.src=data;
+					*/
+					
+					img = new Image();
+					img.onload = function() {
+						imageWidth = img.width;
+						imageHeight = img.height;
+						imageRight = imageX + imageWidth;
+						imageBottom = imageY+imageHeight;
+
+						Drawfunction(true,false);
+					}
+					img.src=data;
 				});
 				$('#colorpicker').farbtastic(function(data) {
 					color = data;
@@ -72,39 +110,119 @@
 						width = ui.value;
 					}
 				});
-			});
-		</script>
-		<script> 
-			var socket = io.connect();
-			function transfer() {
-				socket.emit('imagedraw','');
-			}
-			socket.on('image',function(data) {
-				var image = new Image();
-				var canvas = document.getElementById('canvas');
-				var context = canvas.getContext('2d');
-				
-				image.onload = function() {
-					var x=0,y=0;
-					context.drawImage(image,x,y,300,300);
-					alert("Draw Finish");
+
+				function drawDragAnchor(x,y) {
+					context.beginPath();
+					context.arc(x,y,resizerRadius,0,pi2,false);
+					context.closePath();
+					context.fill();
 				}
-				image.src = "data:image/png;base64,"+data;
-				/*
-				var uint8Arr = new Uint8Array(data.buffer);
-				var str = String.fromCharCode.apply(null,uint8Arr);
-				var base64String = btoa(str);
-				
-				var img = new Image();
-				img.onload = function() {
-					var canvas = document.getElementById('canvas');
-					var context = canvas.getContext('2d');
-					var x=0,y=0;
-					context.drawImage(this,x,y);
+				function anchorHitTest(x,y) {
+					var dx,dy;
+					dx = x - imageX;
+					dy = y - imageY;
+					if((dx*dx+dy*dy)<=rr){ return(0); }
+
+					dx=x-imageRight;
+					dy=y-imageY;
+					if((dx*dx+dy*dy)<=rr){ return(1); }
+
+					dx=x-imageRight;
+					dy=y-imageBottom;
+					if((dx*dx+dy*dy)<=rr){ return(2); }
+
+					dx=x-imageX;
+					dy=y-imageBottom;
+					if((dx*dx+dy*dy)<=rr){ return(3); }
+
+					return(-1);
 				}
-				img.src = 'data:image/png;base64,'+base64String;
-				*/
-				
+				function hitImage(x,y) {
+					return (x>imageX && x<(imageX+imageWidth) && y>imageY && y<(imageY+imageHeight));
+				}
+				function handleMouseDown(e) {
+					startX = parseInt(e.clientX - offsetX);
+					startY = parseInt(e.clientY - offsetY);
+					draggingResizer = anchorHitTest(startX,startY);
+					draggingImage = (draggingResizer<0 && hitImage(startX,startY));
+				}
+				function handleMouseUp(e) {
+					draggingResizer = -1;
+					draggingImage = false;
+					Drawfunction(true,false);
+				}
+				function handleMouseOut(e) {
+					handleMouseUp(e);
+				}
+				function handleMouseMove(e) {
+					if(draggingResizer > -1) {
+						mouseX = parseInt(e.clientX - offsetX);
+						mouseY = parseInt(e.clientY - offsetY);
+
+						switch(draggingResizer) {
+							case 0:
+								imageX = mouseX;
+								imageWidth = imageRight - mouseX;
+								imageY = mouseY;
+								imageHeight = imageBottom - mouseY;
+								break;
+							case 1:
+								imageY=mouseY;
+								imageWidth=mouseX-imageX;
+								imageHeight=imageBottom-mouseY;
+								break;
+							case 2:
+								imageWidth=mouseX-imageX;
+								imageHeight=mouseY-imageY;
+								break;
+							case 3:
+								imageX=mouseX;
+								imageWidth=imageRight-mouseX;
+								imageHeight=mouseY-imageY;
+								break;
+						}
+						if(imageWidth < 25) imageWidth = 25;
+						if(imageHeight < 25) imageHeight = 25;
+
+						imageRight = imageX + imageWidth;
+						imageBottom = imageY + imageHeight;
+						Drawfunction(true,true);
+					} else if(draggingImage) {
+						imageClick = false;
+						mouseX = parseInt(e.clientX - offsetX);
+						mouseY = parseInt(e.clientY - offsetY);
+
+						var dx = mouseX - startX;
+						var dy = mouseY - startY;
+						imageX += dx;
+						imageY += dy;
+						imageRight += dx;
+						imageBottom += dy;
+						startX = mouseX;
+						startY = mouseY;
+						Drawfunction(false,true);
+					}
+				}
+				function Drawfunction(withAnchors,withBorders) {
+					context.clearRect(0,0,canvas.width,canvas.height);
+					context.drawImage(img,0,0,img.width,img.height,imageX,imageY,imageWidth,imageHeight);
+
+					if(withAnchors) {
+						drawDragAnchor(imageX,imageY);
+						drawDragAnchor(imageRight,imageY);
+						drawDragAnchor(imageRight,imageBottom);
+						drawDragAnchor(imageX,imageBottom);
+					}
+					if(withBorders) {
+						context.beginPath();
+						context.moveTo(imageX,imageY);
+						context.lineTo(imageRight,imageY);
+						context.lineTo(imageRight,imageBottom);
+						context.lineTo(imageX,imageBottom);
+						context.closePath();
+						context.stroke();
+					}
+				}
 			});
 		</script>
 		<script>
@@ -115,9 +233,9 @@
 			<tr>
 				<td rowspan="3">
 					<!--캔버스-->
-					<canvas id="canvas" width="800" height="700"></canvas>
+					<canvas id="canvas" class="subcanvs" width="800" height="800"></canvas>
 				</td>
-				<td height="50">
+				<td height="100">
 					<!-- 색상 선택 -->
 					<div id="colorpicker"></div>
 				</td>
@@ -127,12 +245,35 @@
 					<!-- 슬라이더 : 두께 선택 -->
 					<div id="slider"></div>
 					<!-- 이미지 업로드 -->
-					<form method='post' action='upload' enctype='multipart/form-data' >
-						<input type="file" name="fileUploaded"/>
-						<input type="submit" onclick="transfer()"/>
+					<input type="file" id="base64" />
+					<form name="check">
+						<input type="radio" name="func_btn" onclick="choice_func('draw_check');"  checked="checked"/>Draw
+						<input type="radio" name="func_btn" onclick="choice_func('img_check');" />Image Drag & Resize
+						<input type="hidden" id="func" value="draw_check" />
 					</form>
 				</td>
 			</tr>
 		</table>
+		<script>
+			function choice_func(choice) {
+				if(choice == "draw_check") document.getElementById("func").value = "draw_check";
+				else if(choice == "img_check") document.getElementById("func").value = "img_check";
+			}
+			function readImage(input) {
+				if ( input.files && input.files[0] ) {
+					var fr= new FileReader();
+					fr.onload = function(e) {
+						var socket = io.connect();
+						var base64 = e.target.result;
+						socket.emit('imagedraw',base64);
+						//alert(e.target.result);
+					};       
+					fr.readAsDataURL(input.files[0]);
+			    }
+			}
+			$("#base64").change(function() {
+				readImage(this);
+			});
+		</script>
 	</body>
 </html>
