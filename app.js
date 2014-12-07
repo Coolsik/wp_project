@@ -11,11 +11,7 @@ var bodyParser = require('body-parser');
 var crypto = require('crypto');
 var mongoose = require('mongoose');
 
-<<<<<<< HEAD
-mongoose.connect('mongodb://localhost/ex2');
-=======
 mongoose.connect('mongodb://localhost/user');
->>>>>>> 3bb627dcc64c5aab9cd2ab73003659cc12295be6
 
 var app = express();
 var router = express.Router();
@@ -41,8 +37,8 @@ var io = socketio.listen(server);
 //app.get('/canvas/:room',canvas.canvas);
 
 app.get('/',function(request,response) {
-	//fs.readFile('./views/index.html',function(error,data) {
-	fs.readFile('./views/Lobby.html',function(error,data) {
+	fs.readFile('./views/index.html',function(error,data) {
+	//fs.readFile('./views/Lobby.html',function(error,data) {
 		response.send(data.toString());
 	});
 });
@@ -116,7 +112,7 @@ app.post('/LOGIN', function(req,res,next) {
 
 		//console.log(req.session.login);
 		fs.readFile('./views/Lobby.html',function(error,data) {
-			res.end(req.body.username);
+			//res.end(req.body.username);
 			res.send(data.toString());
 		});
 	};
@@ -187,7 +183,6 @@ io.sockets.on('connection',function(socket) {
 	});
 	socket.on('imagedraw',function(data) {
 		//console.log("base64 string : " + data);
-<<<<<<< HEAD
 		var img_num = parseInt(data[0]) + 1;
 		var imgdata = data.substr(img_num,data.length);
 		var imgname = data.substr(1,img_num-1);
@@ -232,9 +227,6 @@ io.sockets.on('connection',function(socket) {
 	socket.on('imageMove',function(data) {
 		//console.log(data);
 		io.sockets.in(socket.room).emit('redraw',data);
-=======
-		io.sockets.in(socket.room).emit('image',data);
 		console.log("image send finish");
->>>>>>> 3bb627dcc64c5aab9cd2ab73003659cc12295be6
 	});
 });
