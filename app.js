@@ -77,13 +77,16 @@ app.post('/canvas/upload',function(request,response) {
 	request.pipe(request.busboy);
 	request.busboy.on('file',function(fieldname,file,filename) {
 		console.log('Uploading : ' + filename);
-		img = __dirname+"\\images\\" + filename;
-		fstream = fs.createWriteStream(img);
-		file.pipe(fstream);
-		fstream.on('close',function() {
-			console.log("Upload Finished of " + filename);
-			response.redirect('back');
-		});
+		if(filename=="") console.log("NULL");
+		else {
+			img = __dirname+"\\images\\" + filename;
+			fstream = fs.createWriteStream(img);
+			file.pipe(fstream);
+			fstream.on('close',function() {
+				console.log("Upload Finished of " + filename);
+				response.redirect('back');
+			});
+		}
 	});
 });
 
@@ -134,20 +137,28 @@ io.sockets.on('connection',function(socket) {
 		index++;
 	});
 	socket.on('imagedraw',function(data) {
+		//console.log("base64 string : " + data);
+		io.sockets.in(socket.room).emit('image',data);
+		console.log("image send finish");
+		/*
 		setTimeout(function() {
-			/*
+			//
 			console.log("img : " + img);
 			var base64Image = new Buffer(img,'binary').toString('base64');
 			//var decodedImage = new Buffer(base64Image,'base64').toString('binary');
 			console.log("decodedImage : " + base64Image);
 			io.sockets.in(socket.room).emit('image',base64Image);
 			console.log("image send finish");
-			*/
-			fs.readFile(img,function(err,original_data) {
-				var base64Image = new Buffer(original_data,'binary').toString('base64');
-				io.sockets.in(socket.room).emit('image',base64Image);
-				console.log("image send finish");
-			});
+			//
+			// base64 -> image to binary string
+			if(img=="") console.log("Image is NULL");
+			else {
+				fs.readFile(img,function(err,original_data) {
+					var base64Image = new Buffer(original_data,'binary').toString('base64');
+					io.sockets.in(socket.room).emit('image',base64Image);
+					console.log("image send finish");
+				});
+			}
 		},1500);
 		//io.sockets.in(socket.room).emit('image',data);
 		/*
