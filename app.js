@@ -11,7 +11,11 @@ var bodyParser = require('body-parser');
 var crypto = require('crypto');
 var mongoose = require('mongoose');
 
+<<<<<<< HEAD
 mongoose.connect('mongodb://localhost/ex2');
+=======
+mongoose.connect('mongodb://localhost/user');
+>>>>>>> 3bb627dcc64c5aab9cd2ab73003659cc12295be6
 
 var app = express();
 var router = express.Router();
@@ -87,21 +91,80 @@ var ImageSchema = mongoose.Schema({imgname:String});
 var SaveImage = mongoose.model('ImageModel',ImageSchema);
 var Memo = mongoose.model('MemoModel', MemoSchema);
 
-app.post('/insert', function(req,res){
-	/*
-	var memo = new Memo({username:req.body.username,memo:req.body.password});
-	memo.save(function(err,silence){
-		if(err){
-			console.err(err);
-			throw err;
-		}
-		res.send('success');
-	});
-	*/
+var UserSchema = mongoose.Schema({
+	id:String,
+	password:String,
+});
+var User = mongoose.model('UserModel', UserSchema);
+
+app.post('/LOGIN', function(req,res,next) {
+	res.status(200);
 	req.password = myHash(req.body.password);
 	console.log("name : " + req.body.username);
 	console.log("password : " + req.password);
-	
+	User.findOne({id: req.body.username, password:req.password}, function(err, member){
+		
+	console.log("member" + member);
+	if(member != null){
+		//req.session.login = 'login';
+		//req.session.username = req.username;
+		console.log("login Success");
+
+		//var createSession = function createSession(){
+		//	req.session.login = req.body.username;
+		//};
+
+		//console.log(req.session.login);
+		fs.readFile('./views/Lobby.html',function(error,data) {
+			res.end(req.body.username);
+			res.send(data.toString());
+		});
+	};
+		res.status(200);
+	});
+
+});
+
+app.post('/SIGNUP', function(req,res){
+	User.findOne({id:req.body.usernamesignup}, function(err, member){
+		if(member == null){
+
+			var pass, pass_con;
+			pass = req.body.passwordsignup;
+			pass_con = req.body.passwordsignup_confirm;
+
+			if(pass == pass_con){
+
+				req.passwordsignup = myHash(req.body.passwordsignup);
+
+				var user = new User({id:req.body.usernamesignup,password:req.passwordsignup});
+				user.save(function(err,silence){
+					if(err){
+						console.err(err);
+						throw err;
+					}
+					res.redirect('/');
+				});
+			}
+			else{
+				fs.readFile('./views/wrongpass.html',function(error,data) {
+					//fs.readFile('./views/Lobby.html',function(error,data) {
+					res.send(data.toString());
+				});
+			}
+
+		}
+		else {
+			fs.readFile('./views/sameid.html',function(error,data) {
+				//fs.readFile('./views/Lobby.html',function(error,data) {
+				res.send(data.toString());
+			});
+			//res.redirect('/#toregister');
+		}
+		//console.log("name : " + req.body.id);
+		//console.log("password : " + req.passwordsignup);
+	});
+
 });
 
 io.sockets.on('connection',function(socket) {
@@ -124,6 +187,7 @@ io.sockets.on('connection',function(socket) {
 	});
 	socket.on('imagedraw',function(data) {
 		//console.log("base64 string : " + data);
+<<<<<<< HEAD
 		var img_num = parseInt(data[0]) + 1;
 		var imgdata = data.substr(img_num,data.length);
 		var imgname = data.substr(1,img_num-1);
@@ -168,5 +232,9 @@ io.sockets.on('connection',function(socket) {
 	socket.on('imageMove',function(data) {
 		//console.log(data);
 		io.sockets.in(socket.room).emit('redraw',data);
+=======
+		io.sockets.in(socket.room).emit('image',data);
+		console.log("image send finish");
+>>>>>>> 3bb627dcc64c5aab9cd2ab73003659cc12295be6
 	});
 });
