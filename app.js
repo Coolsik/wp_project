@@ -7,6 +7,14 @@ var express = require('express')
 	, path = require('path')
 	, fs= require('fs')
 
+
+var bodyParser = require('body-parser');
+var crypto = require('crypto');
+var mongoose = require('mongoose');
+
+
+mongoose.connect('mongodb://localhost/ex2');
+
 var app = express();
 var router = express.Router();
 app.use(morgan());
@@ -14,6 +22,8 @@ app.use(express.static('public'));
 app.use(morgan('dev'));
 app.use(busboy());
 app.use(router);
+app.use(bodyParser.json());                          // parse application/json
+app.use(bodyParser.urlencoded({ extended: true }));  // parse application/x-www-form-urlencoded
 
 /*
 app.use(app.router);
@@ -44,7 +54,8 @@ var io = socketio.listen(server);
 //app.get('/canvas/:room',canvas.canvas);
 
 app.get('/',function(request,response) {
-	fs.readFile('./views/Lobby.html',function(error,data) {
+	fs.readFile('./views/index.html',function(error,data) {
+	//fs.readFile('./views/Lobby.html',function(error,data) {
 		response.send(data.toString());
 	});
 });
@@ -74,6 +85,36 @@ app.post('/canvas/upload',function(request,response) {
 			response.redirect('back');
 		});
 	});
+});
+
+// hash Key Generation for Password
+
+var myHash = function myHash(key){
+	var hash = crypto.createHash('sha1');
+	hash.update(key);
+	return hash.digest('hex');
+}
+
+var MemoSchema = mongoose.Schema({username:String,password:String});
+
+var Memo = mongoose.model('MemoModel', MemoSchema);
+
+app.post('/insert', function(req,res){
+	/*
+	var memo = new Memo({username:req.body.username,memo:req.body.password});
+	memo.save(function(err,silence){
+		if(err){
+			console.err(err);
+			throw err;
+		}
+		res.send('success');
+	});
+	*/
+	req.password = myHash(req.body.password);
+
+	console.log("name : " + req.body.username);
+	console.log("password : " + req.password);
+	
 });
 
 io.sockets.on('connection',function(socket) {
