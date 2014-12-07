@@ -5,13 +5,11 @@ var express = require('express')
 	, morgan = require('morgan')
 	, http = require('http')
 	, path = require('path')
-	, fs= require('fs')
-
+	, fs= require('fs');
 
 var bodyParser = require('body-parser');
 var crypto = require('crypto');
 var mongoose = require('mongoose');
-
 
 mongoose.connect('mongodb://localhost/ex2');
 
@@ -25,21 +23,6 @@ app.use(router);
 app.use(bodyParser.json());                          // parse application/json
 app.use(bodyParser.urlencoded({ extended: true }));  // parse application/x-www-form-urlencoded
 
-/*
-app.use(app.router);
-app.use(express.static('public'));
-app.set('port', process.env.PORT || 3000);
-app.set('views', __dirname + '/views');
-app.set('view engine', 'ejs');
-app.use(express.favicon());
-app.use(express.logger('dev'));
-app.use(express.bodyParser());
-app.use(express.methodOverride());
-app.use(app.router);
-app.use(express.static(path.join(__dirname, 'public')));
-
-//app.get('/',routes.Lobby);
-*/
 var img;
 var RoomName,index=0;
 var RoomList = new Array();
@@ -54,8 +37,8 @@ var io = socketio.listen(server);
 //app.get('/canvas/:room',canvas.canvas);
 
 app.get('/',function(request,response) {
-	fs.readFile('./views/index.html',function(error,data) {
-	//fs.readFile('./views/Lobby.html',function(error,data) {
+	//fs.readFile('./views/index.html',function(error,data) {
+	fs.readFile('./views/Lobby.html',function(error,data) {
 		response.send(data.toString());
 	});
 });
@@ -99,7 +82,9 @@ var myHash = function myHash(key){
 }
 
 var MemoSchema = mongoose.Schema({username:String,password:String});
+var ImageSchema = mongoose.Schema({imgname:String});
 
+var SaveImage = mongoose.model('ImageModel',ImageSchema);
 var Memo = mongoose.model('MemoModel', MemoSchema);
 
 app.post('/insert', function(req,res){
@@ -114,7 +99,6 @@ app.post('/insert', function(req,res){
 	});
 	*/
 	req.password = myHash(req.body.password);
-
 	console.log("name : " + req.body.username);
 	console.log("password : " + req.password);
 	
@@ -128,44 +112,61 @@ io.sockets.on('connection',function(socket) {
 	});
 	socket.on('draw',function(data) {
 		//socket.get('room',function(error,room) {
+		console.log(data);
 		io.sockets.in(socket.room).emit('line',data);
 		//});
 	});
 	socket.on('create_room',function(data) {
+		console.log("room name : " +data);
 		io.sockets.emit('create_room',data.toString());
 		RoomList[index] = data.toString();
 		index++;
 	});
 	socket.on('imagedraw',function(data) {
 		//console.log("base64 string : " + data);
-		io.sockets.in(socket.room).emit('image',data);
-		console.log("image send finish");
-		/*
-		setTimeout(function() {
-			//
-			console.log("img : " + img);
-			var base64Image = new Buffer(img,'binary').toString('base64');
-			//var decodedImage = new Buffer(base64Image,'base64').toString('binary');
-			console.log("decodedImage : " + base64Image);
-			io.sockets.in(socket.room).emit('image',base64Image);
-			console.log("image send finish");
-			//
-			// base64 -> image to binary string
-			if(img=="") console.log("Image is NULL");
-			else {
-				fs.readFile(img,function(err,original_data) {
-					var base64Image = new Buffer(original_data,'binary').toString('base64');
-					io.sockets.in(socket.room).emit('image',base64Image);
-					console.log("image send finish");
-				});
-			}
-		},1500);
-		//io.sockets.in(socket.room).emit('image',data);
-		/*
-		console.log("img : " + img);
-		fs.readFile(img,function(err,buffer) {
-			socket.emit('image',{buffer:buffer});
+		var img_num = parseInt(data[0]) + 1;
+		var imgdata = data.substr(img_num,data.length);
+		var imgname = data.substr(1,img_num-1);
+		var base64str = imgdata.split("base64,");
+		var decodedimage = new Buffer(base64str[1],'base64');
+		var img_path=__dirname+"\\images\\" + imgname +".jpg";
+		var save_img = new SaveImage({imgname:imgname});
+/*
+		fs.readFile(img_path,function(err,data) {
+			var bas = new Buffer(data,'binary').toString('base64');
+			if(bas == base64str[1]) console.log("image matching");
 		});
 		*/
+		fs.writeFile(img_path,decodedimage,function(err) {
+			console.log(err);
+		});
+		save_img.save(function(err,silence) {
+			if(err){
+				console.err(err);
+				throw err;
+			}
+			console.log('success');
+		});
+		setTimeout(function() {
+			SaveImage.findOne({imgname:imgname},function(err,result) {
+				var rename = result.imgname, bas,last;
+				rename = __dirname+"\\images\\"+result.imgname+".jpg";
+				console.log("result : " + rename);
+				fs.readFile(rename,function(err,readimg) {
+					bas = new Buffer(readimg,'binary').toString('base64');
+					last = "data:image/jpeg;base64," + bas;
+					console.log("data : " + imgdata);
+					console.log("last : " + last);
+					if(imgdata == last) console.log('equals data');
+					//bas = "data:image/jpeg;base64," + bas;
+					io.sockets.in(socket.room).emit('image',last);
+					console.log("image send finish");
+				});
+			});
+		},2000);
+	});
+	socket.on('imageMove',function(data) {
+		//console.log(data);
+		io.sockets.in(socket.room).emit('redraw',data);
 	});
 });

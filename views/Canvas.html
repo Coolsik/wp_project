@@ -81,25 +81,24 @@
 					context.stroke();
 				});
 				socket.on('image',function(data) {
-					/*
-					var image = new Image();
-					image.onload = function() {
-						var x=0,y=0;
-						context.drawImage(image,x,y,300,300);
-					}
-					image.src=data;
-					*/
-					
 					img = new Image();
 					img.onload = function() {
 						imageWidth = img.width;
 						imageHeight = img.height;
 						imageRight = imageX + imageWidth;
 						imageBottom = imageY+imageHeight;
-
 						Drawfunction(true,false);
 					}
 					img.src=data;
+				});
+				socket.on('redraw',function(data) {
+					imageX = data.imageX;
+					imageY = data.imageY;
+					imageWidth = data.imageWidth;
+					imageHeight = data.imageHeight;
+					imageBottom = data.imageBottom;
+					imageRight = data.imageRight;
+					Drawfunction(true,false);
 				});
 				$('#colorpicker').farbtastic(function(data) {
 					color = data;
@@ -149,7 +148,17 @@
 				function handleMouseUp(e) {
 					draggingResizer = -1;
 					draggingImage = false;
-					Drawfunction(true,false);
+					
+					var transfer = {
+						"imageWidth":imageWidth,
+						"imageHeight":imageHeight,
+						"imageX":imageX,
+						"imageY":imageY,
+						"imageRight":imageRight,
+						"imageBottom":imageBottom
+					};
+					socket.emit('imageMove',transfer);
+					//Drawfunction(true,false);
 				}
 				function handleMouseOut(e) {
 					handleMouseUp(e);
@@ -186,7 +195,7 @@
 
 						imageRight = imageX + imageWidth;
 						imageBottom = imageY + imageHeight;
-						Drawfunction(true,true);
+						//Drawfunction(true,true);
 					} else if(draggingImage) {
 						imageClick = false;
 						mouseX = parseInt(e.clientX - offsetX);
@@ -200,7 +209,7 @@
 						imageBottom += dy;
 						startX = mouseX;
 						startY = mouseY;
-						Drawfunction(false,true);
+						//Drawfunction(false,true);
 					}
 				}
 				function Drawfunction(withAnchors,withBorders) {
@@ -245,7 +254,8 @@
 					<!-- 슬라이더 : 두께 선택 -->
 					<div id="slider"></div>
 					<!-- 이미지 업로드 -->
-					<input type="file" id="base64" />
+					<input type="file" id="base64"/>
+					<input type="hidden" id="countImage"  value="0" />
 					<form name="check">
 						<input type="radio" name="func_btn" onclick="choice_func('draw_check');"  checked="checked"/>Draw
 						<input type="radio" name="func_btn" onclick="choice_func('img_check');" />Image Drag & Resize
@@ -262,11 +272,18 @@
 			function readImage(input) {
 				if ( input.files && input.files[0] ) {
 					var fr= new FileReader();
+					var num = document.getElementById("countImage").value;
+					var index = parseInt(num);
+					index++;
+					document.getElementById("countImage").value = "" + index;
+					var roomname='<%= room %>';
+					
 					fr.onload = function(e) {
 						var socket = io.connect();
-						var base64 = e.target.result;
+						var length = (roomname+index).length;
+						var base64 = "" + length + roomname + index + e.target.result;
+						//socket.emit('imagedraw',index);
 						socket.emit('imagedraw',base64);
-						//alert(e.target.result);
 					};       
 					fr.readAsDataURL(input.files[0]);
 			    }
